@@ -4,21 +4,22 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.RectF
 import android.support.v7.widget.RecyclerView
+import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
-import java.util.*
 
-private const val ZERO_POSTION_Y = 0f
+private const val ZERO_POSITION_Y = 0f
 private const val ZERO_POSITION_X = 0f
 private const val CACHED_ELEMENT_KEY = 0
 
-// todo delete bitmap, add holder cache for types, cause bitmap has native allocations - too bad for performance
+typealias Holder = RecyclerView.ViewHolder
+
 class RecyclerViewDecorator<P : Enum<P>>(
     types: List<P>
 ) : RecyclerView.ItemDecoration() {
 
     private val types: List<Int> = types.map { it.ordinal }
-    private val cachedHolders = HashMap<Int, RecyclerView.ViewHolder>(types.size)
+    private val cachedHolders = SparseArray<RecyclerView.ViewHolder>(types.size)
     private var isDownScroll = false
     private var yTranslation = 0f
 
@@ -32,9 +33,9 @@ class RecyclerViewDecorator<P : Enum<P>>(
 
     private var isAdded = false
 
-    // todo check should draw if no header on top
     override fun onDrawOver(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         parent.adapter?.let {
+            cacheViewHolders(parent)
             if (!isAdded) {
                 isAdded = true
                 parent.addOnScrollListener(scroller)
@@ -43,6 +44,14 @@ class RecyclerViewDecorator<P : Enum<P>>(
                 drawUpScroll(c, parent, state)
             } else {
                 drawDownScroll(c, parent, state)
+            }
+        }
+    }
+
+    private fun cacheViewHolders(parent: RecyclerView) {
+        types.forEach {
+            if (cachedHolders.get(it) == null) {
+                createViewHolder(parent, it)?.let { vh -> cachedHolders.put(it, vh) }
             }
         }
     }
@@ -56,7 +65,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
 
         if (secondHolder?.itemViewType in types) yTranslation = currentView?.y ?: 0f
 
-        c.translate(0f, yTranslation)
+        c.translate(ZERO_POSITION_X, yTranslation)
 
         // todo check it
 //        if (topHolder?.itemViewType in types) {
@@ -77,42 +86,50 @@ class RecyclerViewDecorator<P : Enum<P>>(
         val nextHolder = findSecondHolder(parent, topView)
         val nextView = nextHolder?.itemView
 
-        state.get<Bitmap>(0)?.let {
+        state.get<Holder>(0)?.let {
             if (nextHolder?.itemViewType in types) {
                 yTranslation = -nextView?.height!! + nextView.y
-                c.translate(0f, yTranslation)
+                c.translate(ZERO_POSITION_X, yTranslation)
             }
         }
 
         viewHolder?.let {
             if (it.itemViewType in types) {
-                drawNewStickyHolder(viewHolder, c, state)
+                val cachedVh = getHolderFromCache(it, parent)
+                drawNewStickyHolder(cachedVh, c, state)
             } else {
                 drawFromState(state, c)
             }
         }
+    }
 
+    private fun getHolderFromCache(viewHolder: Holder, parent: RecyclerView): Holder {
+        val cachedVh = cachedHolders.get(viewHolder.itemViewType) ?: viewHolder
+        parent.adapter?.onBindViewHolder(cachedVh, viewHolder.adapterPosition)
+        return cachedVh
     }
 
     private fun findHeaderByType(
         parent: RecyclerView,
         currentPosition: Int
-    ): RecyclerView.ViewHolder? {
-        var viewHolder: RecyclerView.ViewHolder? = null
+    ): Holder? {
+        var viewHolder: Holder? = null
         for (i in currentPosition downTo 0) {
-            val currentType = parent.adapter?.getItemViewType(i)
+            val currentType = parent.adapter?.getItemViewType(i)!!
             if (currentType in types) {
-                viewHolder = if (cachedHolders.containsKey(currentType)) {
-                    return cachedHolders[currentType]
-                } else createViewHolder(parent, currentType!!)
-                viewHolder?.let { parent.adapter?.onBindViewHolder(viewHolder, i) }
+                viewHolder = if (cachedHolders.valueAt(currentType) != null) {
+                    cachedHolders[currentType]
+                } else {
+                    createViewHolder(parent, currentType)
+                }
+                viewHolder?.let { parent.adapter?.onBindViewHolder(it, i) }
                 break
             }
         }
         return viewHolder
     }
 
-    private fun createViewHolder(parent: RecyclerView, currentType: Int): RecyclerView.ViewHolder? {
+    private fun createViewHolder(parent: RecyclerView, currentType: Int): Holder? {
         return parent.adapter?.onCreateViewHolder(parent, currentType)?.apply {
             createView(itemView, parent)
         }
@@ -134,11 +151,13 @@ class RecyclerViewDecorator<P : Enum<P>>(
         }
     }
 
-    private fun findHolderOnTop(parent: RecyclerView) = parent.findChildViewUnder(0f, 0f)?.let {
-        parent.findContainingViewHolder(it)
+    private fun findHolderOnTop(parent: RecyclerView): Holder? {
+        return parent.findChildViewUnder(ZERO_POSITION_X, ZERO_POSITION_Y)?.let {
+            parent.findContainingViewHolder(it)
+        }
     }
 
-    private fun findSecondHolder(parent: RecyclerView, currentView: View?): RecyclerView.ViewHolder? {
+    private fun findSecondHolder(parent: RecyclerView, currentView: View?): Holder? {
         return parent.findChildViewUnder(0f, calculateHolderYPositionUnder(currentView))?.let {
             parent.getChildViewHolder(it)
         }
@@ -146,33 +165,19 @@ class RecyclerViewDecorator<P : Enum<P>>(
 
     private fun calculateHolderYPositionUnder(view: View?) = view?.let { it.height + it.y } ?: 0f
 
-    // change it here from class todo
-    private fun drawNewStickyHolder(viewHolder: RecyclerView.ViewHolder, canvas: Canvas, state: RecyclerView.State) {
-        val itemView = viewHolder.itemView
-        yTranslation = 0f
-        val bitmap = createBitmap(itemView, state)
-        Canvas(bitmap).also { itemView.draw(it) }
-        drawBitmap(canvas, bitmap)
-        state.put(0, bitmap)
+    private fun drawNewStickyHolder(
+        viewHolder: Holder,
+        canvas: Canvas,
+        state: RecyclerView.State
+    ) {
+        yTranslation = ZERO_POSITION_Y
+        viewHolder.itemView.draw(canvas)
+        state.put(0, viewHolder)
     }
 
     private fun drawFromState(state: RecyclerView.State, canvas: Canvas) {
-        state.get<Bitmap>(0)?.also {
-            canvas.drawBitmap(it, null, createRectF(it), null)
+        state.get<Holder>(0)?.also {
+            it.itemView.draw(canvas)
         }
     }
-
-    private fun createBitmap(view: View, state: RecyclerView.State): Bitmap {
-        return if (state.get<Bitmap>(0) == null) {
-            Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-        } else state.get(0)
-
-    }
-
-    private fun drawBitmap(canvas: Canvas, bitmap: Bitmap) {
-        val rectF = createRectF(bitmap)
-        canvas.drawBitmap(bitmap, null, rectF, null)
-    }
-
-    private fun createRectF(bitmap: Bitmap) = RectF(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat())
 }
