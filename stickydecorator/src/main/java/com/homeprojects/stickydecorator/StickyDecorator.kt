@@ -1,12 +1,12 @@
 package com.homeprojects.stickydecorator
 
-import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.RectF
+import android.support.v7.util.DiffUtil.calculateDiff
 import android.support.v7.widget.RecyclerView
 import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 
 private const val ZERO_POSITION_Y = 0f
 private const val ZERO_POSITION_X = 0f
@@ -59,37 +59,37 @@ class RecyclerViewDecorator<P : Enum<P>>(
     private fun drawDownScroll(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         val topHolder = findHolderOnTop(parent)
         val currentView = topHolder?.itemView
-        val secondHolder = findSecondHolder(parent, currentView)
+        val underTopVh = findViewHolderUnderSticky(parent,currentView?.bottom ?: 0)
         val currentPosition = topHolder?.adapterPosition ?: 0
         val nextHolder: RecyclerView.ViewHolder? = findHeaderByType(parent, currentPosition)
+        val secondHolder = findHolderUnderZeroPosition(parent, underTopVh!!)
 
-        if (secondHolder?.itemViewType in types) yTranslation = currentView?.y ?: 0f
+        if (secondHolder?.itemViewType in types) {
+            val offset = nextHolder?.let { calculateCurrentOffset(it, secondHolder!!) } ?: 0f
+            yTranslation = if (offset <= 0)
+                offset
+            else ZERO_POSITION_Y
+        }
+        println("Current translate $yTranslation")
 
         c.translate(ZERO_POSITION_X, yTranslation)
-
-        // todo check it
-//        if (topHolder?.itemViewType in types) {
-//            drawFromState(state, c)
-//            return
-//        }
 
         nextHolder?.let {
             drawNewStickyHolder(it, c, state)
         } ?: run {
-            drawFromState(state, c)
+            state.remove(CACHED_ELEMENT_KEY)
         }
     }
 
     private fun drawUpScroll(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         val viewHolder = findHolderOnTop(parent)
         val topView = viewHolder?.itemView
-        val nextHolder = findSecondHolder(parent, topView)
-        val nextView = nextHolder?.itemView
-
-        state.get<Holder>(0)?.let {
-            if (nextHolder?.itemViewType in types) {
-                yTranslation = -nextView?.height!! + nextView.y
-                c.translate(ZERO_POSITION_X, yTranslation)
+        state.get<Holder>(CACHED_ELEMENT_KEY)?.let {
+            val secondHolder = findViewHolderUnderSticky(parent,topView?.bottom ?: 0)
+            if (secondHolder?.itemViewType in types) {
+                yTranslation = calculateCurrentOffset(it, secondHolder!!)
+                if (yTranslation <= 0)
+                    c.translate(ZERO_POSITION_X, yTranslation)
             }
         }
 
@@ -103,10 +103,30 @@ class RecyclerViewDecorator<P : Enum<P>>(
         }
     }
 
+    private fun calculateCurrentOffset(sticky: Holder, underSticky: Holder): Float {
+        return -sticky.itemView.height + underSticky.itemView.y
+    }
+
     private fun getHolderFromCache(viewHolder: Holder, parent: RecyclerView): Holder {
         val cachedVh = cachedHolders.get(viewHolder.itemViewType) ?: viewHolder
         parent.adapter?.onBindViewHolder(cachedVh, viewHolder.adapterPosition)
         return cachedVh
+    }
+
+    private fun drawNewStickyHolder(
+        viewHolder: Holder,
+        canvas: Canvas,
+        state: RecyclerView.State
+    ) {
+        yTranslation = ZERO_POSITION_Y
+        viewHolder.itemView.draw(canvas)
+        state.put(CACHED_ELEMENT_KEY, viewHolder)
+    }
+
+    private fun drawFromState(state: RecyclerView.State, canvas: Canvas) {
+        state.get<Holder>(CACHED_ELEMENT_KEY)?.also {
+            it.itemView.draw(canvas)
+        }
     }
 
     private fun findHeaderByType(
@@ -157,27 +177,16 @@ class RecyclerViewDecorator<P : Enum<P>>(
         }
     }
 
-    private fun findSecondHolder(parent: RecyclerView, currentView: View?): Holder? {
-        return parent.findChildViewUnder(0f, calculateHolderYPositionUnder(currentView))?.let {
+    private fun findHolderUnderZeroPosition(parent: RecyclerView, typedHolder: Holder): Holder? {
+        return parent.findChildViewUnder(ZERO_POSITION_X, typedHolder.itemView.y)?.let {
             parent.getChildViewHolder(it)
         }
     }
 
-    private fun calculateHolderYPositionUnder(view: View?) = view?.let { it.height + it.y } ?: 0f
-
-    private fun drawNewStickyHolder(
-        viewHolder: Holder,
-        canvas: Canvas,
-        state: RecyclerView.State
-    ) {
-        yTranslation = ZERO_POSITION_Y
-        viewHolder.itemView.draw(canvas)
-        state.put(0, viewHolder)
-    }
-
-    private fun drawFromState(state: RecyclerView.State, canvas: Canvas) {
-        state.get<Holder>(0)?.also {
-            it.itemView.draw(canvas)
+    private fun findViewHolderUnderSticky(parent: RecyclerView, currentYOffset: Int): Holder? {
+        val offset = currentYOffset.toFloat()
+        return parent.findChildViewUnder(ZERO_POSITION_X, offset)?.let {
+            parent.findContainingViewHolder(it)
         }
     }
 }
