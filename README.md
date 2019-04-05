@@ -1,7 +1,12 @@
 # StickyAdapter
 Sticky decorator for view types
 
-<img src="https://github.com/Vaiklol/photos/blob/master/sticky.gif" alt="sticky" width="400"/>
+# in progress
+- bigger sticky than holders
+- mapper for data merge
+- background for default
+- publish
+<img src="https://github.com/Vaiklol/photos/blob/master/asd.gif" alt="asd" width="400"/>
 
 Example:
 ```
