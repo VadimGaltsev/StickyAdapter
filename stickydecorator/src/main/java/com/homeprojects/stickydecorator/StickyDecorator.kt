@@ -1,12 +1,10 @@
 package com.homeprojects.stickydecorator
 
 import android.graphics.Canvas
-import android.support.v7.util.DiffUtil.calculateDiff
 import android.support.v7.widget.RecyclerView
 import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 
 private const val ZERO_POSITION_Y = 0f
 private const val ZERO_POSITION_X = 0f
@@ -70,7 +68,6 @@ class RecyclerViewDecorator<P : Enum<P>>(
                 offset
             else ZERO_POSITION_Y
         }
-        println("Current translate $yTranslation")
 
         c.translate(ZERO_POSITION_X, yTranslation)
 
