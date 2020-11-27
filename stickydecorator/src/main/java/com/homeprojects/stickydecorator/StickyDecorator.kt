@@ -1,10 +1,9 @@
 package com.homeprojects.stickydecorator
 
 import android.graphics.Canvas
-import android.support.v7.widget.RecyclerView
-import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
 
 private const val ZERO_POSITION_Y = 0f
 private const val ZERO_POSITION_X = 0f
@@ -31,6 +30,10 @@ class RecyclerViewDecorator<P : Enum<P>>(
 
     private var isAdded = false
 
+    fun clearCacheHolder(){
+        cachedHolders.clear()
+    }
+
     override fun onDrawOver(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         parent.adapter?.let {
             cacheViewHolders(parent)
@@ -48,7 +51,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
 
     private fun cacheViewHolders(parent: RecyclerView) {
         types.forEach {
-            if (cachedHolders.get(it) == null) {
+            if (cachedHolders[it] == null) {
                 createViewHolder(parent, it)?.let { vh -> cachedHolders.put(it, vh) }
             }
         }
