@@ -87,7 +87,7 @@ class MainActivity : AppCompatActivity() {
         val datea = dateFormat.parse(currentDate).let { dateFormat.format(it) }
         title = datea
         recyclerView.adapter = adapter(listItems)
-        recyclerView.addItemDecoration(RecyclerViewDecorator(listOf(Types.HeaderImage, Types.HeaderText)))
+        recyclerView.addItemDecoration(RecyclerViewDecorator(listOf(Types.HeaderText)))
     }
 
 }

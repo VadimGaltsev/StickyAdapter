@@ -17,7 +17,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
 ) : RecyclerView.ItemDecoration() {
 
     private val types: List<Int> = types.map { it.ordinal }
-    private val cachedHolders = SparseArray<RecyclerView.ViewHolder>(types.size)
+    private val cachedHolders = HashMap<Int, RecyclerView.ViewHolder>(types.size)
     private var isDownScroll = false
     private var yTranslation = 0f
 
@@ -134,7 +134,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
         for (i in currentPosition downTo 0) {
             val currentType = parent.adapter?.getItemViewType(i)!!
             if (currentType in types) {
-                viewHolder = if (cachedHolders.valueAt(currentType) != null) {
+                viewHolder = if (cachedHolders.contains(currentType)) {
                     cachedHolders[currentType]
                 } else {
                     createViewHolder(parent, currentType)
