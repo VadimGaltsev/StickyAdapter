@@ -60,7 +60,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
     private fun drawDownScroll(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         val topHolder = findHolderOnTop(parent)
         val currentView = topHolder?.itemView
-        val underTopVh = findViewHolderUnderSticky(parent,currentView?.bottom ?: 0)
+        val underTopVh = findViewHolderUnderSticky(parent,currentView?.height ?: 0)
         val currentPosition = topHolder?.adapterPosition ?: 0
         val nextHolder: RecyclerView.ViewHolder? = findHeaderByType(parent, currentPosition)
         val secondHolder = findHolderUnderZeroPosition(parent, underTopVh!!)
@@ -85,7 +85,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
         val viewHolder = findHolderOnTop(parent)
         val topView = viewHolder?.itemView
         state.get<Holder>(CACHED_ELEMENT_KEY)?.let {
-            val secondHolder = findViewHolderUnderSticky(parent,topView?.bottom ?: 0)
+            val secondHolder = findViewHolderUnderSticky(parent,topView?.height ?: 0)
             if (secondHolder?.itemViewType in types) {
                 yTranslation = calculateCurrentOffset(it, secondHolder!!)
                 if (yTranslation <= 0)
