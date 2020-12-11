@@ -1,10 +1,9 @@
 package com.homeprojects.stickydecorator
 
 import android.graphics.Canvas
-import android.support.v7.widget.RecyclerView
-import android.util.SparseArray
 import android.view.View
 import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
 
 private const val ZERO_POSITION_Y = 0f
 private const val ZERO_POSITION_X = 0f
@@ -31,6 +30,10 @@ class RecyclerViewDecorator<P : Enum<P>>(
 
     private var isAdded = false
 
+    fun clearCacheHolder(){
+        cachedHolders.clear()
+    }
+
     override fun onDrawOver(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         parent.adapter?.let {
             cacheViewHolders(parent)
@@ -48,7 +51,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
 
     private fun cacheViewHolders(parent: RecyclerView) {
         types.forEach {
-            if (cachedHolders.get(it) == null) {
+            if (cachedHolders[it] == null) {
                 createViewHolder(parent, it)?.let { vh -> cachedHolders.put(it, vh) }
             }
         }
@@ -57,7 +60,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
     private fun drawDownScroll(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
         val topHolder = findHolderOnTop(parent)
         val currentView = topHolder?.itemView
-        val underTopVh = findViewHolderUnderSticky(parent,currentView?.bottom ?: 0)
+        val underTopVh = findViewHolderUnderSticky(parent,currentView?.height ?: 0)
         val currentPosition = topHolder?.adapterPosition ?: 0
         val nextHolder: RecyclerView.ViewHolder? = findHeaderByType(parent, currentPosition)
         val secondHolder = findHolderUnderZeroPosition(parent, underTopVh!!)
@@ -82,7 +85,7 @@ class RecyclerViewDecorator<P : Enum<P>>(
         val viewHolder = findHolderOnTop(parent)
         val topView = viewHolder?.itemView
         state.get<Holder>(CACHED_ELEMENT_KEY)?.let {
-            val secondHolder = findViewHolderUnderSticky(parent,topView?.bottom ?: 0)
+            val secondHolder = findViewHolderUnderSticky(parent,topView?.height ?: 0)
             if (secondHolder?.itemViewType in types) {
                 yTranslation = calculateCurrentOffset(it, secondHolder!!)
                 if (yTranslation <= 0)
